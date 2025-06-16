@@ -1,0 +1,9 @@
+# env
+.env
+
+# input, output
+.input
+.output
+
+# cache
+*/__pycache__
