@@ -7,4 +7,5 @@ app.include_router(predict_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(host='0.0.0.0', port=8080, app=app)
+
+    uvicorn.run(host="0.0.0.0", port=8080, app=app)
