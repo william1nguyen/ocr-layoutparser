@@ -1,9 +1,9 @@
 from fastapi import FastAPI
-from routes.layout import layout_router
+from routes.predict_route import predict_router
 
 app = FastAPI()
 
-app.include_router(layout_router)
+app.include_router(predict_router)
 
 if __name__ == "__main__":
     import uvicorn
