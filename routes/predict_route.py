@@ -1,5 +1,3 @@
-import os
-import json
 import tempfile
 from fastapi import APIRouter, File, UploadFile
 from services.predict_service import *
@@ -16,9 +14,9 @@ async def detect_content(file: UploadFile = File(...)):
             tmp.flush()
             frame = Frame(image_path=tmp.name)
             content = frame.run_predict()
-            return content
-    except Exception as err:
-        raise err
+        return content
+    except:
+        raise Exception("Failed to detect content")
 
 
 @predict_router.post("")
@@ -36,4 +34,4 @@ async def detect_bounding_box_content(files: list[UploadFile] = File(...)):
             bounding_box_content = prediction.run_predict()
             bounding_box_contents.append(bounding_box_content)
 
-    return contents
+    return bounding_box_contents

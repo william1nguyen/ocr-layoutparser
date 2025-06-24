@@ -5,16 +5,13 @@ import cv2
 import tempfile
 
 
-class BoundingBox(object):
-    x1: int
-    x2: int
-    y1: int
-    y2: int
-
-
 class Frame(object):
     def __init__(self, image_path: str):
         self.image_path = image_path
+
+    def gemini_predict(self, message: str):
+        response = gemini.prompting(message=message, image_paths=[self.image_path])
+        return response
 
     def run_predict(self):
         """
@@ -30,7 +27,7 @@ class Frame(object):
         """
 
         start_time = time.time()
-        response = gemini.prompting(message=message, image_paths=[self.image_path])
+        response = self.gemini_predict(message=message)
 
         print("--- %s seconds ---" % (time.time() - start_time))
         return response
@@ -42,6 +39,10 @@ class Prediction(object):
         self.image_path = image_path
 
     def get_prediction_bounding_box(self, conf: float = 0.2):
+        """
+        Get document layout and detect bounding boxes
+        """
+
         res = yolov10.predict(
             source=self.image_path,
             imgsz=1024,
@@ -67,7 +68,42 @@ class Prediction(object):
 
         return bounding_boxes
 
+    def _predict_bounding_box_content(self, image, bounding_box):
+        """
+        Detect a single bounding box text content
+        """
+
+        if not bounding_box:
+            return None
+
+        x1 = bounding_box["x1"]
+        y1 = bounding_box["y1"]
+        x2 = bounding_box["x2"]
+        y2 = bounding_box["y2"]
+
+        crop_image = image[y1:y2, x1:x2]
+
+        cv2.imwrite(f"{x1}-{x2}.jpg", crop_image)
+
+        try:
+            with tempfile.NamedTemporaryFile(delete=True, suffix=".png") as tmp:
+                cv2.imwrite(tmp.name, crop_image)
+                frame = Frame(image_path=tmp.name)
+                content = frame.run_predict()
+                if content:
+                    return {
+                        "image_id": self.image_id,
+                        "bounding_box": bounding_box,
+                        "content": str(content),
+                    }
+        except:
+            raise Exception("Failed to predict bounding box content")
+
     def run_predict(self):
+        """
+        Extract all bounding boxes text content
+        """
+
         pred_frames = []
         image = cv2.imread(self.image_path)
 
@@ -77,22 +113,9 @@ class Prediction(object):
             return ValueError("No bounding box detected!")
 
         for bounding_box in bounding_boxes:
-            x1 = bounding_box["x1"]
-            y1 = bounding_box["y1"]
-            x2 = bounding_box["x2"]
-            y2 = bounding_box["y2"]
+            bounding_box_content = self._predict_bounding_box_content(
+                image, bounding_box
+            )
 
-            crop_image = image[y1:y2, x1:x2]
-
-            with tempfile.NamedTemporaryFile(delete=True, suffix=".png") as tmp:
-                cv2.imwrite(tmp.name, crop_image)
-                frame = Frame(image_path=tmp.name)
-                content = frame.run_predict()
-                pred_frames.append(
-                    {
-                        "image_id": self.image_id,
-                        # "bounding_box": bounding_box,
-                        "content": content,
-                    }
-                )
+            pred_frames.append(bounding_box_content)
         return pred_frames

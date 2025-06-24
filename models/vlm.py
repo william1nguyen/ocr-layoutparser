@@ -3,7 +3,9 @@ from openai import OpenAI
 from utils import image
 
 
-def prompting(client: OpenAI, model: str, message: str, image_paths: list[str]):
+def prompting(
+    client: OpenAI, model: str, message: str, image_paths: list[str], retries=1
+):
     content = []
 
     if message:
@@ -24,14 +26,27 @@ def prompting(client: OpenAI, model: str, message: str, image_paths: list[str]):
                 }
             )
 
-    message = [{"role": "user", "content": content}]
+    messages = [{"role": "user", "content": content}]
 
-    response = client.chat.completions.create(
-        model=model, messages=message, response_format={"type": "json_object"}
-    )
+    for _ in range(retries):
+        try:
+            response = client.chat.completions.create(
+                model=model, messages=messages, response_format={"type": "json_object"}
+            )
 
-    json_content = response.choices[0].message.content
-    try:
-        return json.loads(json_content)
-    except Exception as err:
-        raise err
+            content = response.choices[0].message.content.strip()
+
+            if content.startswith("```json"):
+                content = content.removeprefix("```json").strip()
+            if content.endswith("```"):
+                content = content.removesuffix("```").strip()
+
+            if content:
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON returned: {e}") from e
+        except:
+            pass
+
+    return {"error": "No valid JSON content returned from response."}
