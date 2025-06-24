@@ -1,23 +1,15 @@
-import time
-from models.yolo import yolov10
-from models import gemini
 import cv2
+import time
 import tempfile
+from models.yolo import yolov10
+from models import gemini, paddle
 
 
 class Frame(object):
     def __init__(self, image_path: str):
         self.image_path = image_path
 
-    def gemini_predict(self, message: str):
-        response = gemini.prompting(message=message, image_paths=[self.image_path])
-        return response
-
-    def run_predict(self):
-        """
-        Extract all text content from image
-        """
-
+    def gemini_predict(self):
         message = """
         Please extract all textual information from the uploaded image.
         Return the result in the following JSON format:
@@ -26,8 +18,20 @@ class Frame(object):
         }
         """
 
+        response = gemini.prompting(message=message, image_paths=[self.image_path])
+        return response
+
+    def paddle_predict(self):
+        response = paddle.predict(image_path=self.image_path)
+        return response
+
+    def run_predict(self):
+        """
+        Extract all text content from image
+        """
+
         start_time = time.time()
-        response = self.gemini_predict(message=message)
+        response = self.paddle_predict()
 
         print("--- %s seconds ---" % (time.time() - start_time))
         return response
@@ -82,8 +86,6 @@ class Prediction(object):
         y2 = bounding_box["y2"]
 
         crop_image = image[y1:y2, x1:x2]
-
-        cv2.imwrite(f"{x1}-{x2}.jpg", crop_image)
 
         try:
             with tempfile.NamedTemporaryFile(delete=True, suffix=".png") as tmp:
