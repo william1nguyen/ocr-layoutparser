@@ -1,6 +1,7 @@
 import tempfile
 from fastapi import APIRouter, File, UploadFile
 from services.predict_service import *
+import time
 
 predict_router = APIRouter(prefix="/predict", tags=["predict"])
 
@@ -21,6 +22,7 @@ async def detect_content(file: UploadFile = File(...)):
 
 @predict_router.post("")
 async def detect_bounding_box_content(files: list[UploadFile] = File(...)):
+    start_time = time.time()
     bounding_box_contents = []
     for id in range(len(files)):
         file = files[id]
@@ -33,5 +35,5 @@ async def detect_bounding_box_content(files: list[UploadFile] = File(...)):
             prediction = Prediction(image_path=tmp.name, image_id=id)
             bounding_box_content = prediction.run_predict()
             bounding_box_contents.append(bounding_box_content)
-
+    print("--- %s seconds ---" % (time.time() - start_time))
     return bounding_box_contents

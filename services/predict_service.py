@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import cv2
 import time
 import tempfile
@@ -101,7 +102,7 @@ class Prediction(object):
         except:
             raise Exception("Failed to predict bounding box content")
 
-    def run_predict(self):
+    def run_predict(self, max_workers=5):
         """
         Extract all bounding boxes text content
         """
@@ -114,10 +115,11 @@ class Prediction(object):
         if not bounding_boxes:
             return ValueError("No bounding box detected!")
 
-        for bounding_box in bounding_boxes:
-            bounding_box_content = self._predict_bounding_box_content(
-                image, bounding_box
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            pred_frames = list(
+                executor.map(
+                    lambda bbox: self._predict_bounding_box_content(image, bbox),
+                    bounding_boxes,
+                )
             )
-
-            pred_frames.append(bounding_box_content)
         return pred_frames
